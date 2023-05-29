@@ -1,4 +1,4 @@
-- hosts: lab-ubuntu
+- hosts: localhost
   become: true
   gather_facts: true
   roles:

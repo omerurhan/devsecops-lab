@@ -2,4 +2,3 @@
 localhost ansible_connection=local
 
 [lab-ubuntu]
-18.185.188.24
