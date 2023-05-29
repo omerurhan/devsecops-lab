@@ -1,0 +1,13 @@
+- hosts: localhost
+#  become: true
+  gather_facts: true
+  roles:
+    - prerequirements
+    - k8s
+    - jenkins
+    - vault
+    - elk
+    - sonarqube
+    - database
+  vars_files:
+    - ../vars/general-config.yml

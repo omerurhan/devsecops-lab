@@ -1,0 +1,36 @@
+- name: Add Jenkins HELM repository
+  shell: |
+    helm repo add hashicorp https://helm.releases.hashicorp.com
+    helm repo update
+  
+- name: Copy values.yml file
+  ansible.builtin.copy:
+    src: values.yml
+    dest: "/tmp/vault.values.yml"
+
+- name: Install Vault
+  shell: |
+    helm upgrade --install vault hashicorp/vault \
+      --kubeconfig {{ kubeconfigPath }} \
+      --version {{ vault_version }} \
+      --namespace vault \
+      -f /tmp/vault.values.yml \
+      --create-namespace
+
+- name: Check Vault deployment
+  shell: |
+    set -o pipefail
+    helm status vault -n vault -o json  | jq -r '.info.status'
+  register: vaultStatus
+  until:
+    - vaultStatus.stdout == "deployed" 
+  retries: 60
+  delay: 10
+  args:
+    executable: /bin/bash
+
+- name: Wait for vault pods become ready
+  shell: "kubectl wait --namespace=vault --for=jsonpath='{.status.phase}'=Running pods --selector app.kubernetes.io/instance=vault --timeout=600s"
+  register: pods_ready
+
+- debug: var=pods_ready.stdout_lines

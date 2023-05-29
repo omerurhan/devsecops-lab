@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: cerebro
+  name: cerebro
+  namespace: logging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cerebro
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: cerebro
+    spec:
+      containers:
+      - image: lmenezes/cerebro
+        name: cerebro
+        resources: {}
+        env:
+        - name: "CEREBRO_PORT"
+          value: "9000"
+status: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: cerebro
+  name: cerebro
+  namespace: logging
+spec:
+  ports:
+  - name: 9000-9000
+    port: 9000
+    protocol: TCP
+    targetPort: 9000
+  selector:
+    app: cerebro
+  type: ClusterIP
+status:
+  loadBalancer: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cerebro
+  namespace: logging
+spec:
+  rules:
+  - host: cerebro.demo.io
+    http:
+      paths:
+      - backend:
+          service:
+            name: cerebro
+            port:
+              number: 9000
+        pathType: ImplementationSpecific

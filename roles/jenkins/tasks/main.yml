@@ -1,0 +1,39 @@
+- name: Add Jenkins HELM repository
+  shell: |
+    helm repo add jenkinsci https://charts.jenkins.io
+    helm repo update
+#  ignore_errors: true
+
+- name: Copy values.yml file
+  ansible.builtin.copy:
+    src: values.yml
+    dest: "/tmp/jenkins.values.yml"
+
+- name: Install Jenkins
+  shell: |
+    helm upgrade --install jenkins jenkinsci/jenkins \
+      --kubeconfig {{ kubeconfigPath }} \
+      -f /tmp/jenkins.values.yml \
+      --version {{ jenkins_version }} \
+      --namespace jenkins \
+      --create-namespace
+
+- name: Check Jenkins deployment
+  shell: |
+    set -o pipefail
+    helm status jenkins -n jenkins -o json  | jq -r '.info.status'
+  register: jenkinsStatus
+  until:
+    - jenkinsStatus.stdout == "deployed" 
+  retries: 60
+  delay: 10
+  args:
+    executable: /bin/bash
+
+- name: Wait for jenkins pods become ready
+  shell: "kubectl wait --namespace=jenkins --for=condition=Ready pods --selector app.kubernetes.io/component=jenkins-controller --timeout=600s"
+  register: controller_pods_ready
+
+- debug: var=controller_pods_ready.stdout_lines
+
+

@@ -1,0 +1,34 @@
+- name: Add Sonarqube HELM repository
+  shell: |
+    helm repo add sonarqube https://SonarSource.github.io/helm-chart-sonarqube
+    helm repo update
+#  ignore_errors: true
+
+- name: Copy values.yml file
+  ansible.builtin.copy:
+    src: values.yml
+    dest: "/tmp/sonarqube.values.yml"
+
+- name: Install Sonarqube
+  shell: |
+    helm upgrade --install sonarqube sonarqube/sonarqube \
+      --kubeconfig {{ kubeconfigPath }} \
+      -f /tmp/sonarqube.values.yml \
+      --version {{ sonarqube_version }} \
+      --namespace sonarqube \
+      --create-namespace
+
+- name: Check Sonarqube deployment
+  shell: |
+    set -o pipefail
+    helm status sonarqube -n sonarqube -o json  | jq -r '.info.status'
+  register: sonarqubeStatus
+  until:
+    - sonarqubeStatus.stdout == "deployed" 
+  retries: 60
+  delay: 10
+  args:
+    executable: /bin/bash
+
+- name: Wait for sonarqube pods become ready
+  shell: "kubectl wait --namespace=sonarqube --for=condition=Ready pods --selector app=sonarqube --timeout=600s"

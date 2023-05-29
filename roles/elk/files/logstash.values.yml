@@ -1,0 +1,86 @@
+# Version: 7.17.3
+replicas: 1
+logstashPipeline:
+  logstash.conf: |
+    input {
+      beats {
+        port => 5044
+      }
+    }
+    filter{
+      json {
+        source => "message"
+        skip_on_invalid_json => true
+      }
+      if "_jsonparsefailure" in [tags] {
+          drop{}
+      }
+      else {
+        mutate {
+          add_field => { "node" => "%{[kubernetes][node][name]}" }
+          add_field => { "[container][name]" => "%{[kubernetes][container][name]}" }
+          add_field => { "pod" => "%{[kubernetes][pod][name]}" }
+          add_field => { "namespace" => "%{[kubernetes][namespace]}"}
+          add_field => { "region" => "DEV"}
+          remove_field => ["@version","beat","input_type","_type","kubernetes","host","[log][file][path]","[log][offset]"]
+        }
+      }
+      if [namespace] == "kube-system"{
+        drop{}
+      }
+      if [namespace] == "kube-node-lease"{
+        drop{}
+      }
+      if [namespace] == "kube-public"{
+        drop{}
+      }
+      if [namespace] == "ingress-nginx"{
+        drop{}
+      }
+      if [namespace] == "kubernetes-dashboard"{
+        drop{}
+      }
+      if [namespace] == "logging"{
+        drop{}
+      }
+      if [namespace] == "monitoring"{
+        drop{}
+      }
+      if [namespace] == "gitlab-agent"{
+        drop{}
+      }
+      if [namespace] == "observability"{
+        drop{}
+      }
+    }
+    output {
+      elasticsearch {
+        hosts => "elasticsearch-master"
+        sniffing => false
+        manage_template => false
+        index => "logstash-%{+YYYY.MM.dd}"
+      }
+    }
+logstashConfig:
+  logstash.yml: |
+    http.host: "0.0.0.0"
+    path.config: /usr/share/logstash/pipeline
+#logstashJavaOpts: "-Xmx1g -Xms1g"
+resources:
+  requests:
+    cpu: "100m"
+    memory: "250Mi"
+  limits:
+    cpu: "1000m"
+    memory: "1Gi"
+service:
+  type: ClusterIP
+  ports:
+    - name: beats
+      port: 5044
+      protocol: TCP
+      targetPort: 5044
+    - name: http
+      port: 8080
+      protocol: TCP
+      targetPort: 8080

@@ -1,0 +1,15 @@
+- hosts: lab-ubuntu
+  become: true
+  gather_facts: true
+  roles:
+  #  - dnsmasq
+    - prerequirements
+    - k8s
+    - jenkins
+    - vault
+    - elk
+    - sonarqube
+    - database
+  vars_files:
+    - ../vars/general-config.yml
+    - ../vars/linux.yml

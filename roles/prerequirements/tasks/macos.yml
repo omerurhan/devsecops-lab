@@ -1,0 +1,15 @@
+- name: "Install git"
+  community.general.homebrew:
+    name: "{{ item }}"
+    state: present
+    update_homebrew: true
+  loop:
+    - git
+    - kind
+    - jq
+    - kubectl
+    - helm
+
+- name: "Check Docker Setup"
+  ansible.builtin.shell:
+    cmd: docker run hello-world

@@ -1,0 +1,25 @@
+# Version: 7.17.3
+daemonset:
+  filebeatConfig:
+    filebeat.yml: |
+      filebeat.autodiscover:
+        providers:
+          - type: kubernetes
+            node: ${NODE_NAME}
+            hints.enabled: true
+            hints.default_config:
+              type: container
+              paths:
+                - /var/log/containers/*${data.kubernetes.container.id}.log
+      processors:
+        - add_cloud_metadata:
+        - add_host_metadata:
+      output.logstash:
+        hosts: 'logstash-logstash:5044'
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "100Mi"
+    limits:
+      cpu: "1000m"
+      memory: "512Mi"

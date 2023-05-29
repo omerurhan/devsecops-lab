@@ -1,0 +1,119 @@
+- name: Add Elastic HELM repository
+  shell: |
+    helm repo add elastic https://helm.elastic.co
+    helm repo update
+  
+- name: Copy values.yml file
+  ansible.builtin.copy:
+    src: "{{item}}"
+    dest: "/tmp/{{item}}"
+  with_items:
+    - elasticsearch.values.yml
+    - filebeat.values.yml
+    - kibana.values.yml
+    - logstash.values.yml
+
+- name: Copy cerebro manifes
+  ansible.builtin.copy:
+    src: cerebro.yml
+    dest: "/tmp/cerebro.yml"
+
+- name: Install Elasticsearch
+  shell: |
+    helm upgrade --install elasticsearch elastic/elasticsearch \
+      --kubeconfig {{ kubeconfigPath }} \
+      --version {{ elk_version }} \
+      --namespace logging \
+      -f /tmp/elasticsearch.values.yml \
+      --create-namespace
+
+- name: Check Elasticsearh deployment
+  shell: |
+    set -o pipefail
+    helm status elasticsearch -n logging -o json  | jq -r '.info.status'
+  register: elasticsearchStatus
+  until:
+    - elasticsearchStatus.stdout == "deployed" 
+  retries: 60
+  delay: 10
+  args:
+    executable: /bin/bash
+
+#- name: Wait for elasticsearch pods become ready
+#  shell: "kubectl wait --namespace=logging --for=condition=Ready pods --selector app=elasticsearch-master --timeout=600s"
+
+- name: Install Logstash
+  shell: |
+    helm upgrade --install logstash elastic/logstash \
+      --kubeconfig {{ kubeconfigPath }} \
+      --version {{ elk_version }} \
+      --namespace logging \
+      -f /tmp/logstash.values.yml \
+      --create-namespace
+
+- name: Check Logstash deployment
+  shell: |
+    set -o pipefail
+    helm status logstash -n logging -o json  | jq -r '.info.status'
+  register: logstashStatus
+  until:
+    - logstashStatus.stdout == "deployed" 
+  retries: 60
+  delay: 10
+  args:
+    executable: /bin/bash
+
+- name: Wait for logstash pods become ready
+  shell: "kubectl wait --namespace=logging --for=condition=Ready pods --selector app=logstash-logstash --timeout=600s"
+
+- name: Install Filebeat
+  shell: |
+    helm upgrade --install filebeat elastic/filebeat \
+      --kubeconfig {{ kubeconfigPath }} \
+      --version {{ elk_version }} \
+      --namespace logging \
+      -f /tmp/filebeat.values.yml \
+      --create-namespace
+
+- name: Check Filebeat deployment
+  shell: |
+    set -o pipefail
+    helm status filebeat -n logging -o json  | jq -r '.info.status'
+  register: filebeatStatus
+  until:
+    - filebeatStatus.stdout == "deployed" 
+  retries: 60
+  delay: 10
+  args:
+    executable: /bin/bash
+
+- name: Wait for filebeat pods become ready
+  shell: "kubectl wait --namespace=logging --for=condition=Ready pods --selector app=filebeat-filebeat --timeout=600s"
+
+- name: Install Kibana
+  shell: |
+    helm upgrade --install kibana elastic/kibana \
+      --kubeconfig {{ kubeconfigPath }} \
+      --version {{ elk_version }} \
+      --namespace logging \
+      -f /tmp/kibana.values.yml \
+      --create-namespace
+
+- name: Check Kibana deployment
+  shell: |
+    set -o pipefail
+    helm status kibana -n logging -o json  | jq -r '.info.status'
+  register: kibanaStatus
+  until:
+    - kibanaStatus.stdout == "deployed" 
+  retries: 60
+  delay: 10
+  args:
+    executable: /bin/bash
+
+#- name: Wait for kibana pods become ready
+#  shell: "kubectl wait --namespace=logging --for=condition=Ready pods --selector app=kibana --timeout=600s"
+
+
+- name: Install cerebro
+  shell: "kubectl apply -f /tmp/cerebro.yml -n logging"

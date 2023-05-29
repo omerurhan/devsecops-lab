@@ -1,0 +1,13 @@
+- name: Prepare Lab Environment on MacOSX
+  include_tasks: macos.yml
+  when:
+    - ansible_distribution == 'MacOSX'
+
+- name: Prepare Lab Environment on Ubuntu
+  include_tasks: ubuntu.yml
+  when:
+    - ansible_distribution == 'Ubuntu'
+
+# Print the Dictionary
+- debug:
+    msg: "{{ansible_distribution}}"

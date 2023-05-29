@@ -1,0 +1,24 @@
+- name: Create kind cluster config file
+  ansible.builtin.copy:
+    src: cluster.yml
+    dest: "/tmp/cluster.yml"
+
+- name: "Create kind k8s cluster"
+  ansible.builtin.shell:
+    cmd: kind create cluster --config /tmp/cluster.yml --name {{ cluster_name }}
+  run_once: true
+  register: command_result
+  failed_when: "command_result.stdout"
+
+- name: "Export kind k8s cluster KUBECONFIG file."
+  ansible.builtin.shell:
+    cmd: kind export kubeconfig --name {{ cluster_name }}
+  run_once: true
+
+- name: "Install Ingress Nginx"
+  ansible.builtin.shell:
+    cmd: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+
+- name: Wait for ingress pods become ready
+  shell: "kubectl wait --namespace=ingress-nginx --for=condition=Ready pods --selector app.kubernetes.io/component=controller --timeout=600s"
+  register: controller_pods_ready

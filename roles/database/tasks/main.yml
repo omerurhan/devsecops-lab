@@ -1,0 +1,33 @@
+- name: Install Postgresql
+  shell: |
+    helm upgrade --install postgresql oci://registry-1.docker.io/bitnamicharts/postgresql \
+      --kubeconfig {{ kubeconfigPath }} \
+      --version {{ postgresql_version }} \
+      --namespace database \
+      --create-namespace \
+      --set global.postgresql.auth.postgresPassword=password
+
+- name: Check Postgresql deployment
+  shell: |
+    set -o pipefail
+    helm status postgresql -n database -o json  | jq -r '.info.status'
+  register: postgresqlStatus
+  until:
+    - postgresqlStatus.stdout == "deployed" 
+  retries: 60
+  delay: 10
+  args:
+    executable: /bin/bash
+
+- name: Add Adminer HELM repository
+  shell: |
+    helm repo add cetic https://cetic.github.io/helm-charts
+    helm repo update
+  
+- name: Install Adminer
+  shell: |
+    helm upgrade --install adminer cetic/adminer \
+      --kubeconfig {{ kubeconfigPath }} \
+      --namespace database \
+      --create-namespace \
+      --set ingress.enabled=true,ingress.className=nginx,ingress.hosts={adminer.demo.io}

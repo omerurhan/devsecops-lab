@@ -1,0 +1,7 @@
+cluster_name: "devops"
+jenkins_version: "4.3.23"
+kubeconfigPath: "~/.kube/config"
+vault_version: "0.24.1"
+elk_version:  "7.17.3"
+sonarqube_version: "10.0.0+521"
+postgresql_version: "12.5.5"
