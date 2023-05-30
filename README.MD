@@ -43,6 +43,9 @@ kibana.demo.io
 todos.demo.io
 adminer.demo.io
 cerebro.demo.io
+grafana.demo.io
+prometheus.demo.io
+alertmanager.demo.io
 ```
 
 ## Post installation steps

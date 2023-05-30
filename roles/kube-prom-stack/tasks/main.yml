@@ -1,0 +1,33 @@
+- name: Add kubeprom-stack HELM repository
+  shell: |
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts 
+    helm repo update
+#  ignore_errors: true
+
+- name: Copy values.yml file
+  ansible.builtin.copy:
+    src: kubepromstack.values.yml
+    dest: "/tmp/kubepromstack.values.yml"
+
+- name: Install kubeprom-stack
+  shell: |
+    helm upgrade --install kubepromstack prometheus-community/kube-prometheus-stack \
+      --kubeconfig {{ kubeconfigPath }} \
+      -f /tmp/kubepromstack.values.yml \
+      --version {{ kubepromstack_version }} \
+      --namespace monitoring \
+      --create-namespace
+
+- name: Check kubepromstack deployment
+  shell: |
+    set -o pipefail
+    helm status kubepromstack -n monitoring -o json  | jq -r '.info.status'
+  register: promStatus
+  until:
+    - promStatus.stdout == "deployed" 
+  retries: 60
+  delay: 10
+  args:
+    executable: /bin/bash
+
+

@@ -10,6 +10,7 @@
     - elk
     - sonarqube
     - database
+    - kube-prom-stack
   vars_files:
     - ../vars/general-config.yml
     - ../vars/linux.yml

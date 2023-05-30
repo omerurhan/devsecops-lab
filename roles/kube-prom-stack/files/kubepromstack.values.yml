@@ -1,0 +1,173 @@
+# Version 39.9.0
+fullnameOverride: "prom-stack-devsecops"
+defaultRules:
+  additionalRuleLabels:
+    notification: prometheus-stack
+additionalPrometheusRulesMap:
+  sre-team-rules:
+    groups:
+    - name: sre-team-rules
+      rules:
+      - alert: HostHighCpuLoad
+        annotations:
+          description: 'High CPU usage *%{{ $value | printf "%.0f"}}* on instance *{{ $labels.instance | reReplaceAll ":9100" "" }}*'
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        for: 5m
+        labels:
+          severity: critical
+          notification: prometheus-stack
+      - alert: HostOutOfMemory
+        annotations:
+          description: 'Node memory is filling up *%{{ $value | printf "%.0f"}}* on instance: *{{ $labels.instance | reReplaceAll ":9100" "" }}*'
+        expr: 100 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100) > 90
+        for: 5m
+        labels:
+          severity: critical
+          notification: prometheus-stack
+      - alert: HostOomKillDetected
+        annotations:
+          description: 'Host OOM kill detected on instance *{{ $labels.instance | reReplaceAll ":9100" "" }} - {{ $value | printf "%.0f"}}*'
+        expr: increase(node_vmstat_oom_kill[5m]) > 0
+        for: 5m
+        labels:
+          severity: critical
+          notification: prometheus-stack
+      - alert: HostOutOfDiskSpace
+        annotations:
+          description: 'Host out of disk space *%{{ $value | printf "%.0f"}}* on instance *{{ $labels.instance | reReplaceAll ":9100" "" }}*'
+        expr: 100 - ((node_filesystem_avail_bytes * 100) / node_filesystem_size_bytes) > 90
+        for: 5m
+        labels:
+          severity: critical
+          notification: prometheus-stack
+prometheus:
+  prometheusSpec:
+    replicas: 1
+    retention: 7d
+    retentionSize: "20GB"
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    pathType: ImplementationSpecific
+    hosts:
+      - prometheus.demo.io
+grafana:
+  enabled: true
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    pathType: ImplementationSpecific
+    hosts:
+       - grafana.demo.io
+alertmanager:
+  alertmanagerSpec:
+    replicas: 1
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    pathType: ImplementationSpecific
+    hosts:
+       - alertmanager.demo.io
+  config:
+    route:
+      group_by: ['alertname']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 24h
+      receiver: 'default'
+      routes:
+        - receiver: 'default'
+          matchers:
+          - alertname=~(?:Watchdog|etcdHighNumberOfFailedGRPCRequests|NodeFilesystemSpaceFillingUp)
+        - receiver: 'sreteam'
+          matchers:
+          - severity=~(?:warning|critical)
+          continue: true
+    receivers:
+      - name: 'sreteam'
+        slack_configs:
+          - send_resolved: true
+            title: |-
+              {{ if eq .Status "firing" }}[{{ .Status | toUpper }}:{{ .Alerts.Firing | len }}] [{{.CommonLabels.severity | toUpper}}]{{ end }}{{ if eq .Status "resolved" }}[{{ .Status | toUpper }}:{{ .Alerts.Resolved | len }}]{{ end }} - {{ .CommonLabels.alertname }}
+            text: |-
+              {{ if gt (len .Alerts.Resolved) 0 }}
+              {{ range .Alerts.Resolved }}
+              *RESOLVED:* {{ .Annotations.description }}
+              {{ .Annotations.message }}
+              {{ end }}{{ end }}
+              {{ if gt (len .Alerts.Firing) 0 }}
+              {{ range .Alerts.Firing }}
+              *FIRING:* {{ .Annotations.description }}
+              {{ .Annotations.message }}
+              {{ end }}{{ end }}
+            icon_emoji: ':prometheus:'
+            username: 'k8s'
+            channel: '#devsecops'
+            api_url: 'https://hooks.slack.com/services/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'
+      - name: 'default'
+
+nodeExporter:
+  enabled: true
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false 
+
+kubeProxy:
+  enabled: false 
+
+## Create default rules for monitoring the cluster
+##
+defaultRules:
+  create: true
+  rules:
+    alertmanager: true
+    etcd: true
+    configReloaders: true
+    general: true
+    k8s: true
+    kubeApiserverAvailability: true
+    kubeApiserverBurnrate: true
+    kubeApiserverHistogram: true
+    kubeApiserverSlos: true
+    kubeControllerManager: false
+    kubelet: true
+    kubeProxy: false
+    kubePrometheusGeneral: true
+    kubePrometheusNodeRecording: true
+    kubernetesApps: true
+    kubernetesResources: true
+    kubernetesStorage: true
+    kubernetesSystem: true
+    kubeScheduler: false
+    kubeStateMetrics: true
+    network: true
+    node: true
+    nodeExporterAlerting: true
+    nodeExporterRecording: true
+    prometheus: true
+    prometheusOperator: true
+
+  ## Reduce app namespace alert scope
+  appNamespacesTarget: ".*"
+
+  ## Labels for default rules
+  labels: {}
+  ## Annotations for default rules
+  annotations: {}
+
+  ## Additional labels for PrometheusRule alerts
+  additionalRuleLabels: {}
+
+  ## Additional annotations for PrometheusRule alerts
+  additionalRuleAnnotations: {}
+
+  ## Prefix for runbook URLs. Use this to override the first part of the runbookURLs that is common to all rules.
+  runbookUrl: "https://runbooks.prometheus-operator.dev/runbooks"
+
+  ## Disabled PrometheusRule alerts
+  disabled: {}
+  # KubeAPIDown: true
+  # NodeRAIDDegraded: true
